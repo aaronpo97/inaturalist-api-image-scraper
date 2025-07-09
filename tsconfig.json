@@ -4,8 +4,7 @@
     "rootDir": ".",
     "outDir": "build"
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts"
-  ]
+  "esModuleInterop": true,
+
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

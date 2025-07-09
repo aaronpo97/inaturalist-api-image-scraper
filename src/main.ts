@@ -1,9 +1,7 @@
-import {createWriteStream} from 'fs';
-import path = require('path');
+import {createWriteStream, mkdirSync, existsSync, rmSync} from 'fs';
 import {Readable} from 'stream';
 
-import {mkdirSync, existsSync} from 'fs';
-import {rmSync} from 'fs';
+import path = require('path');
 
 function generateFigureCaption({
   id,
@@ -103,17 +101,18 @@ function downloadImage(
       const htmlStream = createWriteStream(htmlFilePath);
       htmlStream.write(attribution);
       htmlStream.end();
-    } catch (err) {
-      reject(err);
+    } catch (error) {
+      console.error(`Error downloading ${url}:`, error);
+      reject(error);
     }
   });
 }
 
 async function getObservation(id: number): Promise<void> {
   const headers = new Headers();
- // const API_TOKEN = process.env.INAT_API_TOKEN;
+  // const API_TOKEN = process.env.INAT_API_TOKEN;
 
- // headers.append('Authorization', API_TOKEN || '');
+  // headers.append('Authorization', API_TOKEN || '');
 
   const response = await fetch(
     `https://api.inaturalist.org/v1/observations/${id}`,
@@ -153,6 +152,7 @@ async function getObservation(id: number): Promise<void> {
   console.log(`Licenses: ${licenses.join(', ')}`);
   console.log(`Number of photos: ${photoUrls.length}`);
 
+  const promises: Promise<void>[] = [];
   // Download images
   for (const [index, url] of photoUrls.entries()) {
     const filename = path.basename(url.split('?')[0]); // remove query strings
@@ -162,18 +162,20 @@ async function getObservation(id: number): Promise<void> {
       'downloads',
       `${id}_${index}_${filename}`,
     );
-    await downloadImage(url, filepath, {
-      id: observation.id,
-      common_name: observation.taxon.preferred_common_name,
-      species: species,
-      user: {
-        login: observation.user.login,
-        id: observation.user.id,
-      },
-      license: licenses[index],
-      url: url,
-    });
+    promises.push(
+      downloadImage(url, filepath, {
+        species,
+        url,
+        id: observation.id,
+        common_name: observation.taxon.preferred_common_name,
+        user: {login: observation.user.login, id: observation.user.id},
+        license: licenses[index],
+      }),
+    );
   }
+
+  await Promise.all(promises);
+  console.log(`Downloaded ${promises.length} images for observation ${id}`);
 }
 
 getObservation(250420394);
