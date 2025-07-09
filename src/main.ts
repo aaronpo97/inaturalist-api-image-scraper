@@ -109,9 +109,9 @@ function downloadImage(
 
 async function getObservation(id: number): Promise<void> {
   const headers = new Headers();
-  const API_TOKEN = process.env.INAT_API_TOKEN;
+ // const API_TOKEN = process.env.INAT_API_TOKEN;
 
-  headers.append('Authorization', API_TOKEN || '');
+ // headers.append('Authorization', API_TOKEN || '');
 
   const response = await fetch(
     `https://api.inaturalist.org/v1/observations/${id}`,
