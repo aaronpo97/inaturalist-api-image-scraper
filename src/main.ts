@@ -1,21 +1,22 @@
 import {createWriteStream} from 'fs';
 import path = require('path');
 import {Readable} from 'stream';
-import {finished} from 'stream/promises';
+
 import {mkdirSync, existsSync} from 'fs';
+import {rmSync} from 'fs';
 
 function generateFigureCaption({
   id,
-  species,
   user,
   license,
-  imageUrl,
+  commonName,
 }: {
   id: string;
   species: string;
   user: {login: string; id: number};
   license: string;
   imageUrl: string;
+  commonName: string;
 }): string {
   const licenseMap: Record<string, string> = {
     cc0: 'CC0 1.0',
@@ -41,7 +42,7 @@ function generateFigureCaption({
   return `
 <figure>
   <figcaption>
-    Figure ?.?.?: <em>${species}</em>. <a href="https://www.inaturalist.org/observations/${id}" target="_blank" rel="noopener noreferrer">${species}</a>, by 
+    Figure ?.?.?: \"<a href="https://www.inaturalist.org/observations/${id}" target="_blank" rel="noopener noreferrer">${commonName}</a>\", by 
     <a href="https://www.inaturalist.org/users/${user.id}" target="_blank" rel="noopener noreferrer">
       ${user.login}
     </a>, 
@@ -95,6 +96,7 @@ function downloadImage(
         user: info.user,
         license: info.license,
         imageUrl: info.url,
+        commonName: info.common_name,
       });
 
       const htmlFilePath = filepath + '.html';
@@ -126,9 +128,16 @@ async function getObservation(id: number): Promise<void> {
   const data = (await response.json()) as any;
   const observation = data.results[0];
 
+  const downloadsDir = path.join(__dirname, '..', 'downloads');
+  if (existsSync(downloadsDir)) {
+    rmSync(downloadsDir, {recursive: true, force: true});
+    console.log(`Deleted folder: ${downloadsDir}`);
+  }
+
   const photoUrls = observation.photos.map((photo: any) => {
     const rawUrl = photo.url as string;
-    return rawUrl.replace('square.jpg', 'original.jpg'); // or 'large.jpg' if you're polite
+
+    return rawUrl.replace('square', 'original');
   });
 
   console.log('Photo URLs:', photoUrls);
@@ -137,6 +146,7 @@ async function getObservation(id: number): Promise<void> {
     observation.species_guess || (observation.taxon?.name ?? 'Unknown Species');
   const licenses = observation.photos.map((p: any) => p.license_code || 'none');
 
+  console.log(observation.taxon.preferred_common_name);
   console.log(observation.user.login, observation.user.id);
   console.log(`Observation ID: ${id}`);
   console.log(`Species: ${species}`);
@@ -154,6 +164,7 @@ async function getObservation(id: number): Promise<void> {
     );
     await downloadImage(url, filepath, {
       id: observation.id,
+      common_name: observation.taxon.preferred_common_name,
       species: species,
       user: {
         login: observation.user.login,
@@ -165,4 +176,4 @@ async function getObservation(id: number): Promise<void> {
   }
 }
 
-getObservation(63270149);
+getObservation(250420394);
