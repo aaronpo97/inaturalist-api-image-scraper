@@ -40,7 +40,7 @@ function generateFigureCaption({
   return `
 <figure>
   <figcaption>
-    Figure ?.?.?: \"<a href="https://www.inaturalist.org/observations/${id}" target="_blank" rel="noopener noreferrer">${commonName}</a>\", by 
+    Figure X.X.X: \"<a href="https://www.inaturalist.org/observations/${id}" target="_blank" rel="noopener noreferrer">${commonName}</a>\", by 
     <a href="https://www.inaturalist.org/users/${user.id}" target="_blank" rel="noopener noreferrer">
       ${user.login}
     </a>, 
@@ -49,7 +49,9 @@ function generateFigureCaption({
     </a>.
   </figcaption>
 </figure>
-  `.trim();
+  `
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function downloadImage(
@@ -110,9 +112,6 @@ function downloadImage(
 
 async function getObservation(id: number): Promise<void> {
   const headers = new Headers();
-  // const API_TOKEN = process.env.INAT_API_TOKEN;
-
-  // headers.append('Authorization', API_TOKEN || '');
 
   const response = await fetch(
     `https://api.inaturalist.org/v1/observations/${id}`,
@@ -126,12 +125,6 @@ async function getObservation(id: number): Promise<void> {
 
   const data = (await response.json()) as any;
   const observation = data.results[0];
-
-  const downloadsDir = path.join(__dirname, '..', 'downloads');
-  if (existsSync(downloadsDir)) {
-    rmSync(downloadsDir, {recursive: true, force: true});
-    console.log(`Deleted folder: ${downloadsDir}`);
-  }
 
   const photoUrls = observation.photos.map((photo: any) => {
     const rawUrl = photo.url as string;
@@ -178,4 +171,40 @@ async function getObservation(id: number): Promise<void> {
   console.log(`Downloaded ${promises.length} images for observation ${id}`);
 }
 
-getObservation(250420394);
+async function main() {
+  const args = process.argv.slice(2);
+
+  const downloadsDir = path.join(__dirname, '..', 'downloads');
+  if (existsSync(downloadsDir)) {
+    rmSync(downloadsDir, {recursive: true, force: true});
+    console.log(`Deleted folder: ${downloadsDir}`);
+  }
+
+  if (args.length < 1) {
+    throw new Error(
+      'Please provide at least one observation id as an argument.',
+    );
+  }
+
+  const observationIds = args
+    .map(arg => parseInt(arg, 10))
+    .filter(id => !isNaN(id) && id > 0);
+
+  if (observationIds.length === 0) {
+    console.error('No valid observation ids provided:', args);
+    process.exit(1);
+  }
+
+  for (const observationId of observationIds) {
+    try {
+      await getObservation(observationId);
+    } catch (error) {
+      console.error(`Error processing observation ${observationId}:`, error);
+    }
+  }
+}
+
+main().catch(error => {
+  console.error('Error in main:', error);
+  process.exit(1);
+});
